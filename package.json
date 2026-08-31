@@ -1,0 +1,15 @@
+{
+  "name": "scamcheck-example-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal rule-based reference implementation of the SCAMCHECK /v1/check API contract, for testing the browser extension end-to-end.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}
