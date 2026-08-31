@@ -128,9 +128,7 @@ function analyzeUrl(rawUrl) {
     }
   }
 
-  if (/\d{1,3}(\.\d{1,3}){3}/.test(host)) {
-    signals.push({ label: "Raw IP address instead of a domain name", reason: "Domain obfuscation" });
-  }
+  if (/[а-яА-ЯΑ-Ωα-ω]/.test(host)) { signals.push({ label: "Domain contains Cyrillic or Greek characters that can mimic Latin letters", reason: "Possible homograph attack" }); } if (host.includes("xn--")) { signals.push({ label: "Domain uses punycode encoding, sometimes used to disguise lookalike characters", reason: "Possible homograph attack" }); }
 
   if (/[а-яΑ-Ωkörné]/i.test(host)) {
     signals.push({ label: "Domain contains non-standard characters", reason: "Possible homograph attack" });
