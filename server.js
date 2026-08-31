@@ -132,8 +132,9 @@ function analyzeUrl(rawUrl) {
     signals.push({ label: "Raw IP address instead of a domain name", reason: "Domain obfuscation" });
   }
 
-  if (/[а-яΑ-Ωkörné]/i.test(host)) { signals.push({ label: "Domain contains non-standard characters", reason: "Possible homograph attack" }); } Select and delete it, then type this in its place: if (/[а-яА-ЯΑ-Ωα-ω]/.test(host)) { signals.push({ label: "Domain contains Cyrillic or Greek characters that can mimic Latin letters", reason: "Possible homograph attack" }); } if (host.includes("xn--")) { signals.push({ label: "Domain uses punycode encoding, sometimes used to disguise lookalike characters", reason: "Possible homograph attack" }); }
-
+  if (/[а-яΑ-Ωkörné]/i.test(host)) {
+    signals.push({ label: "Domain contains non-standard characters", reason: "Possible homograph attack" });
+  }
   return { signals, score: signals.length };
 }
 
