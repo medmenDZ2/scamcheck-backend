@@ -115,11 +115,25 @@ function analyzeUrl(rawUrl) {
     signals.push({ label: "Unusually long/nested subdomain chain", reason: "Domain obfuscation" });
   }
 
+  // Match the brand as a distinct token within a single hostname label
+  // (exact label, or hyphen-delimited: "paypal-verify", "secure-amazon"),
+  // never as a plain substring across the whole host. Plain substring
+  // matching false-positives constantly: "groups.google.com" contains
+  // "ups", "purchase-x.com" contains "chase", "s3.amazonaws.com" contains
+  // "amazon" — none of those are impersonation.
   for (const brand of KNOWN_BRANDS) {
-    const inHost = host.includes(brand);
     const isOfficial =
       host === `${brand}.com` || host.endsWith(`.${brand}.com`) || host === `www.${brand}.com`;
-    if (inHost && !isOfficial) {
+    if (isOfficial) continue;
+
+    const brandAsToken = labels.some(
+      (label) =>
+        label === brand ||
+        label.startsWith(`${brand}-`) ||
+        label.endsWith(`-${brand}`) ||
+        label.includes(`-${brand}-`)
+    );
+    if (brandAsToken) {
       signals.push({
         label: `Mentions "${brand}" but isn't ${brand}'s official domain`,
         reason: "Possible lookalike/impersonation domain",
@@ -128,11 +142,16 @@ function analyzeUrl(rawUrl) {
     }
   }
 
-  if (/[а-яА-ЯΑ-Ωα-ω]/.test(host)) { signals.push({ label: "Domain contains Cyrillic or Greek characters that can mimic Latin letters", reason: "Possible homograph attack" }); } if (host.includes("xn--")) { signals.push({ label: "Domain uses punycode encoding, sometimes used to disguise lookalike characters", reason: "Possible homograph attack" }); }
-
-  if (/[а-яΑ-Ωkörné]/i.test(host)) {
-    signals.push({ label: "Domain contains non-standard characters", reason: "Possible homograph attack" });
+  if (/[а-яА-ЯΑ-Ωα-ω]/.test(host)) {
+    signals.push({ label: "Domain contains Cyrillic or Greek characters that can mimic Latin letters", reason: "Possible homograph attack" });
   }
+  if (host.includes("xn--")) {
+    signals.push({ label: "Domain uses punycode encoding, sometimes used to disguise lookalike characters", reason: "Possible homograph attack" });
+  }
+  // (Removed: a second, buggy "homograph" check whose character class
+  // accidentally included the plain Latin letters k/ö/r/n/é, so it fired
+  // on almost every domain — e.g. amazon.com, microsoft.com, github.com.)
+
   return { signals, score: signals.length };
 }
 
@@ -188,11 +207,18 @@ app.post("/v1/check", (req, res) => {
     evidence.push({ quote: hit.quote, reason: hit.reason });
   }
 
-  if (pageContext?.forms?.some((f) => f.hasPasswordField)) {
+  // Password/payment fields are extremely common on completely legitimate
+  // pages (every real login page, every real checkout page). Flagging them
+  // on their own makes almost any normal site look "suspicious". Only
+  // count them as amplifying evidence when at least one other real signal
+  // (urgency, impersonation, credential/payment request, etc.) is present.
+  const hasPasswordField = pageContext?.forms?.some((f) => f.hasPasswordField);
+  const hasPaymentField = pageContext?.forms?.some((f) => f.hasPaymentField);
+  if (score > 0 && hasPasswordField) {
     warningSigns.push("Page contains a password field");
     score += 1;
   }
-  if (pageContext?.forms?.some((f) => f.hasPaymentField)) {
+  if (score > 0 && hasPaymentField) {
     warningSigns.push("Page contains a payment/card field");
     score += 1;
   }
